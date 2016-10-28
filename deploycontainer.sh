@@ -411,7 +411,7 @@ if [ -z "$VERSION_NUMBER" ]; then
     export VERSION_NUMBER="latest"
 fi
 
-FULL_IMAGE_NAME="${IMAGE_NAME}_${VERSION_NUMBER}"
+FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION_NUMBER}"
 
 # set the port numbers with --publish
 if [ "${PORT}" == "-P" ]; then
