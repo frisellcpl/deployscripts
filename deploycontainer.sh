@@ -98,10 +98,10 @@ deploy_container() {
     fi
 
     # check to see if container image is exisit
-    check_image "$IMAGE_NAME"
+    check_image "$FULL_IMAGE_NAME"
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "$ERROR" "Image '${IMAGE_NAME}' does not exist."
+        log_and_echo "$ERROR" "Image '${FULL_IMAGE_NAME}' does not exist."
         $IC_COMMAND images
         return 1
     fi
@@ -127,11 +127,11 @@ deploy_container() {
         fi
     fi
     # run the container and check the results
-    log_and_echo "run the container: $IC_COMMAND run --name ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${IMAGE_NAME} "
-    ice_retry run --name ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${IMAGE_NAME} 2> /dev/null
+    log_and_echo "run the container: $IC_COMMAND run --name ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${FULL_IMAGE_NAME} "
+    ice_retry run --name ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${FULL_IMAGE_NAME} 2> /dev/null
     RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "$ERROR" "Failed to deploy ${MY_CONTAINER_NAME} using ${IMAGE_NAME}"
+        log_and_echo "$ERROR" "Failed to deploy ${MY_CONTAINER_NAME} using ${FULL_IMAGE_NAME}"
         dump_info
         return 1
     fi
@@ -406,6 +406,12 @@ clean() {
 if [ -z "$URL_PROTOCOL" ]; then
  export URL_PROTOCOL="http://"
 fi
+
+if [ -z "$VERSION_NUMBER" ]; then
+    export VERSION_NUMBER="latest"
+fi
+
+FULL_IMAGE_NAME="${IMAGE_NAME}_${VERSION_NUMBER}"
 
 # set the port numbers with --publish
 if [ "${PORT}" == "-P" ]; then
