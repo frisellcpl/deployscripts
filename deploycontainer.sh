@@ -97,7 +97,7 @@ deploy_container() {
         log_and_echo "$ERROR" "${MY_CONTAINER_NAME} already exists.  Please remove these containers or change the Name of the container or group being deployed"
     fi
 
-    # check to see if container image is exisit 
+    # check to see if container image is exisit
     check_image "$IMAGE_NAME"
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
@@ -238,7 +238,7 @@ deploy_red_black () {
         echo "export TEST_IP="${FLOATING_IP}"" >> "${DEPLOY_PROPERTY_FILE}"
         echo "export TEST_PORT="$(echo $PORT | sed 's/,/ /g' |  awk '{print $1;}')"" >> "${DEPLOY_PROPERTY_FILE}"
     fi
- 
+
     log_and_echo "${green}Public IP address of ${CONTAINER_NAME}_${BUILD_NUMBER} is ${FLOATING_IP} and the TEST_URL is ${TEST_URL} ${no_color}"
 }
 
@@ -254,7 +254,7 @@ clean() {
         # make sure we own this ip
         ice_retry_save_output ip list 2> /dev/null
         RESULT=$?
-        if [ $RESULT -ne 0 ]; then 
+        if [ $RESULT -ne 0 ]; then
             log_and_echo "$ERROR" "'$IC_COMMAND ip list' command failed with return code ${RESULT}"
             log_and_echo "$ERROR" "The requested ip will not be used"
         else
@@ -299,7 +299,7 @@ clean() {
         ice_retry_save_output ps -q -a 2> /dev/null
     else
         ice_retry_save_output ps -a 2> /dev/null
-    fi   
+    fi
     RESULT=$?
     if [ $RESULT -ne 0 ]; then
         log_and_echo "$WARN" "'$IC_COMMAND ps -q' command failed with return code ${RESULT}"
@@ -311,7 +311,7 @@ clean() {
             local CONTAINER_NAME_ARRAY=$(grep ${CONTAINER_NAME} iceretry.log | awk '{print $2}')
         else
             local CONTAINER_NAME_ARRAY=$(grep -oh -e "${CONTAINER_NAME}_[0-9]\+" iceretry.log)
-        fi   
+        fi
     fi
     # loop through the array of the container name and check which one it need to keep
     for containerName in ${CONTAINER_NAME_ARRAY[@]}
@@ -351,8 +351,8 @@ clean() {
                         log_and_echo "$WARN" "'$IC_COMMAND ip unbind ${FLOATING_IP} ${containerName}' command failed with return code ${RESULT}"
                         log_and_echo "$WARN" "Cleaning up previous deployments is not completed"
                         return 0
-                    fi   
-                    sleep 2                    
+                    fi
+                    sleep 2
                     ice_retry ip bind ${FLOATING_IP} ${CONTAINER_NAME}_${BUILD_NUMBER} 2> /dev/null
                     RESULT=$?
                     if [ $RESULT -ne 0 ]; then
@@ -408,8 +408,8 @@ if [ -z "$URL_PROTOCOL" ]; then
 fi
 
 # set the port numbers with --publish
-if [ -z "$PORT" ]; then
-    export PUBLISH_PORT="--publish 80"
+if [ "${PORT}" == "-P" ]; then
+    export PUBLISH_PORT="-P"
 else
     export PUBLISH_PORT=$(get_port_numbers "${PORT}")
 fi
