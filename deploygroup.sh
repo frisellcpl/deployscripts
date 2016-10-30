@@ -92,21 +92,21 @@ map_url_route_to_container_group (){
         return 1
     fi
     # Check domain name is valid
-    # This check is not very useful ... it resturns 0 all the time and just indicates if the route is already created 
+    # This check is not very useful ... it resturns 0 all the time and just indicates if the route is already created
     cf check-route ${HOSTNAME} ${DOMAIN} | grep "does exist"
     local ROUTE_EXISTS=$?
     if [ ${ROUTE_EXISTS} -ne 0 ]; then
-        # make sure we are using CF from our extension so that we can always call target.   
+        # make sure we are using CF from our extension so that we can always call target.
         local MYSPACE=$(${EXT_DIR}/cf target | grep Space | awk '{print $2}' | sed 's/ //g')
         log_and_echo "Route does not exist, attempting to create for ${HOSTNAME} ${DOMAIN} in ${MYSPACE}"
         cf create-route ${MYSPACE} ${DOMAIN} -n ${HOSTNAME}
         RESULT=$?
         log_and_echo "$WARN" "The created route will be reused for this stage, and will persist as an organizational route even if this container group is removed"
         log_and_echo "$WARN" "If you wish to remove this route use the following command: cf delete-route ROUTE_DOMAIN -n ROUTE_HOSTNAME"
-    else 
+    else
         log_and_echo "Route already created for ${HOSTNAME} ${DOMAIN}"
         local RESULT=0
-    fi 
+    fi
 
     if [ $RESULT -eq 0 ]; then
         # Map hostnameName.domainName to the container group.
@@ -128,9 +128,9 @@ map_url_route_to_container_group (){
                     log_and_echo "Router status: 'in_progress': '${ROUTE_PROGRESS}', 'successful': '${ROUTE_SUCCESSFUL}'"
                     if [ "${ROUTE_PROGRESS}" == "false" ]; then
                         break
-                    fi    
+                    fi
                 else
-                    log_and_echo "$IC_COMMAND group inspect ${GROUP_NAME} failed, try again." 
+                    log_and_echo "$IC_COMMAND group inspect ${GROUP_NAME} failed, try again."
                 fi
                 sleep 3
             done
@@ -139,7 +139,7 @@ map_url_route_to_container_group (){
                 log_and_echo "$ERROR" "Router status: 'in_progress': '${ROUTE_PROGRESS}', 'successful': '${ROUTE_SUCCESSFUL}'"
                 return 1
             else
-                log_and_echo "Successfully map $HOSTNAME.$DOMAIN to $MY_GROUP_NAME."    
+                log_and_echo "Successfully map $HOSTNAME.$DOMAIN to $MY_GROUP_NAME."
             fi
 
              # loop until the route to container group success with retun code under 400 or time-out.
@@ -208,11 +208,11 @@ deploy_group() {
         exit 1
     fi
 
-    # check to see if container image is exisit 
-    check_image "$IMAGE_NAME"
+    # check to see if container image is exisit
+    check_image "$FULL_IMAGE_NAME"
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "$ERROR" "Image '${IMAGE_NAME}' does not exist."
+        log_and_echo "$ERROR" "Image '${FULL_IMAGE_NAME}' does not exist."
         $IC_COMMAND images
         return 1
     fi
@@ -245,18 +245,18 @@ deploy_group() {
     fi
 
     # create the group and check the results
-    echo "${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${IMAGE_NAME}"|grep \\-\\-anti > /dev/null
+    echo "${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}"|grep \\-\\-anti > /dev/null
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "creating group: $IC_COMMAND group create --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${IMAGE_NAME}"
-        ice_retry group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${IMAGE_NAME}
+        log_and_echo "creating group: $IC_COMMAND group create --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}"
+        ice_retry group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}
     else
-        log_and_echo "creating group: gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${IMAGE_NAME}"
-        ${EXT_DIR}/utilities/gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${IMAGE_NAME}
+        log_and_echo "creating group: gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}"
+        ${EXT_DIR}/utilities/gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}
     fi
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "$ERROR" "Failed to deploy ${MY_GROUP_NAME} using ${IMAGE_NAME}"
+        log_and_echo "$ERROR" "Failed to deploy ${MY_GROUP_NAME} using ${FULL_IMAGE_NAME}"
         return 1
     fi
 
@@ -316,18 +316,18 @@ deploy_group() {
     elif [ $RESULT -eq 2 ] || [ $RESULT -eq 3 ]; then
         log_and_echo "$ERROR" "Failed to create group."
         sleep 3
-		
+
         # display failure info
         FAILED_GROUP=$($IC_COMMAND group inspect $MY_GROUP_NAME | grep "Failure" | cut -f2- -d':' | sed 's/,//g' | sed 's/"//g')
         log_and_echo "The group ${MY_GROUP_NAME} failed due to:"
         log_and_echo "$ERROR" "$FAILED_GROUP"
-        if [ $RESULT -eq 2 ]; then		
+        if [ $RESULT -eq 2 ]; then
             ice_retry group rm ${MY_GROUP_NAME}
             local RC=$?
             if [ $RC -ne 0 ]; then
                 log_and_echo "$WARN" "'$IC_COMMAND group rm ${MY_GROUP_NAME}' command failed with return code ${RC}"
                 log_and_echo "$WARN" "Removing the failed group ${MY_GROUP_NAME} is not completed"
-            else 
+            else
                 log_and_echo "$WARN" "The group was removed successfully."
             fi
             print_fail_msg "ibm_containers_group"
@@ -520,9 +520,15 @@ if [ $MAX_INSTANCES -lt $DESIRED_INSTANCES ]; then
     export MAX_INSTANCES=$DESIRED_INSTANCES
 fi
 
+if [ -z "$VERSION_NUMBER" ]; then
+    export VERSION_NUMBER="latest"
+fi
+
+FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION_NUMBER}"
+
 # set the port numbers with --publish
-if [ -z "$PORT" ]; then
-    export PUBLISH_PORT="--publish 80"
+if [ "${PORT}" == "-P" ]; then
+    export PUBLISH_PORT="-P"
 else
     export PUBLISH_PORT=$(get_port_numbers "${PORT}")
 fi
@@ -530,26 +536,26 @@ fi
 # if the user has not defined a Route then create one
 if [ -z "${ROUTE_HOSTNAME}" ]; then
     log_and_echo "ROUTE_HOSTNAME not set.  One will be generated.  ${label_color}ROUTE_HOSTNAME can be set as an environment property on the stage${no_color}"
-    if [ -z "$IDS_PROJECT_NAME" ]; then 
+    if [ -z "$IDS_PROJECT_NAME" ]; then
         log_and_echo "$ERROR" "${red}Failed to generate route based on project name${no_color}"
         export ROUTE_HOSTNAME=${TASK_ID}
-    else 
-        log_and_echo "$DEBUGGING" "IDS PROJECT NAME ${IDS_PROJECT_NAME}."  
+    else
+        log_and_echo "$DEBUGGING" "IDS PROJECT NAME ${IDS_PROJECT_NAME}."
         GEN_NAME=$(echo $IDS_PROJECT_NAME | sed 's/ | /-/g')
-        log_and_echo "$DEBUGGING" "IDS GEN_NAME NAME ${GEN_NAME}."  
+        log_and_echo "$DEBUGGING" "IDS GEN_NAME NAME ${GEN_NAME}."
         MY_STAGE_NAME=$(echo $IDS_STAGE_NAME | sed 's/ //g')
         MY_STAGE_NAME=$(echo $MY_STAGE_NAME | sed 's/\./-/g')
         export ROUTE_HOSTNAME=${GEN_NAME}-${MY_STAGE_NAME}
-    fi 
-    log_and_echo "$WARN" "Generated ROUTE_HOSTNAME is ${ROUTE_HOSTNAME}."  
- fi 
+    fi
+    log_and_echo "$WARN" "Generated ROUTE_HOSTNAME is ${ROUTE_HOSTNAME}."
+ fi
 
-# generate a route if one does not exist 
-if [ -z "${ROUTE_DOMAIN}" ]; then 
+# generate a route if one does not exist
+if [ -z "${ROUTE_DOMAIN}" ]; then
     log_and_echo "ROUTE_DOMAIN not set, will attempt to find existing route domain to use. ${label_color} ROUTE_DOMAIN can be set as an environment property on the stage${no_color}"
     export ROUTE_DOMAIN=$(cf routes | tail -1 | grep -E '[a-z0-9]\.' | awk '{print $3}')
-    if [ -z "${ROUTE_DOMAIN}" ]; then 
-        cf domains > domains.log 
+    if [ -z "${ROUTE_DOMAIN}" ]; then
+        cf domains > domains.log
         FOUND=''
         while read domain; do
             log_and_echo "${DEBUGGING}" "looking at $domain"
@@ -560,18 +566,18 @@ if [ -z "${ROUTE_DOMAIN}" ]; then
                     FOUND="y"
                 fi
                 continue
-            else 
-                # we are now actually processing domains rather than junk 
-                export ROUTE_DOMAIN=$(echo $domain | awk '{print $1}') 
+            else
+                # we are now actually processing domains rather than junk
+                export ROUTE_DOMAIN=$(echo $domain | awk '{print $1}')
                 break
-            fi 
+            fi
         done <domains.log
-            
-        log_and_echo "No existing domains found, using organization domain (${ROUTE_DOMAIN})"  
+
+        log_and_echo "No existing domains found, using organization domain (${ROUTE_DOMAIN})"
     else
-        log_and_echo "Found existing domain (${ROUTE_DOMAIN}) used by organization"  
-    fi 
-fi 
+        log_and_echo "Found existing domain (${ROUTE_DOMAIN}) used by organization"
+    fi
+fi
 
 if [ -z "$CONCURRENT_VERSIONS" ];then
     export CONCURRENT_VERSIONS=1
