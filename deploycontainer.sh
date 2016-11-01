@@ -165,6 +165,16 @@ deploy_simple () {
     fi
 }
 
+clean () {
+    log_and_echo "Removing old $IMAGE_NAME containers."
+    ice_retry rm $(ice_retry stop $(ice_retry ps -a -q --filter ancestor=<${IMAGE_NAME}> --format="{{.ID}}"))
+}
+
+clean_and_deploy () {
+    clean
+    deploy_simple
+}
+
 ##################
 # Initialization #
 ##################
@@ -216,6 +226,8 @@ ${EXT_DIR}/utilities/sendMessage.sh -l info -m "New ${DEPLOY_TYPE} container dep
 
 if [ "${DEPLOY_TYPE}" == "red_black" ]; then
     deploy_red_black
+elif [ "${DEPLOY_TYPE}" == "clean_and_deploy" ]; then
+    clean_and_deploy
 elif [ "${DEPLOY_TYPE}" == "simple" ]; then
     deploy_simple
 elif [ "${DEPLOY_TYPE}" == "clean" ]; then
