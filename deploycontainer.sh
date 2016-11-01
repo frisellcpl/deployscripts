@@ -154,6 +154,32 @@ deploy_container() {
     return ${RESULT}
 }
 
+deploy_ha () {
+    local MY_CONTAINER_NAME_BASE="${CONTAINER_NAME}_${BUILD_NUMBER}"
+
+    if [ -z "$NUMBER_OF_INSTANCES" ]; then
+        NUMBER_OF_INSTANCES=3
+    else
+        NUMBER_OF_INSTANCES=${NUMBER_OF_INSTANCES}
+    fi
+
+    local COUNTER=0
+    while [[ ( $COUNTER -lt NUMBER_OF_INSTANCES ) ]]; do
+        let COUNTER=COUNTER+1
+        local MY_CONTAINER_NAME="${MY_CONTAINER_NAME_BASE}_$COUNTER"
+        log_and_echo "RUNNING $MY_CONTAINER_NAME"
+
+        deploy_container ${MY_CONTAINER_NAME}
+        local RESULT=$?
+
+        if [ $RESULT -ne 0 ]; then
+            log_and_echo "$ERROR" "Error encountered with simple build strategy for ${MY_CONTAINER_NAME}"
+            ${EXT_DIR}/utilities/sendMessage.sh -l bad -m "Failed deployment of ${MY_CONTAINER_NAME}. $(get_error_info)"
+            exit $RESULT
+        fi
+    done
+}
+
 deploy_simple () {
     local MY_CONTAINER_NAME="${CONTAINER_NAME}_${BUILD_NUMBER}"
     deploy_container ${MY_CONTAINER_NAME}
@@ -166,13 +192,14 @@ deploy_simple () {
 }
 
 clean () {
-    log_and_echo "Removing old $IMAGE_NAME containers."
-    ice_retry rm $(ice_retry stop $(ice_retry ps -a -q --filter ancestor=<${IMAGE_NAME}> --format="{{.ID}}"))
+    log_and_echo "Removing old $NAME containers."
+    ice_retry stop $(ice_retry ps -a -q --filter env=NAME=${NAME})
+    ice_retry rm $(ice_retry ps -a -q --filter env=NAME=${NAME})
 }
 
 clean_and_deploy () {
     clean
-    deploy_simple
+    deploy_ha
 }
 
 ##################
