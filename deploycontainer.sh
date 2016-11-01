@@ -128,7 +128,7 @@ deploy_container() {
     fi
     # run the container and check the results
     log_and_echo "run the container: $IC_COMMAND run --name ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${FULL_IMAGE_NAME} "
-    ice_retry run --name --env-file ${ENV_FILE} ${MY_CONTAINER_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${FULL_IMAGE_NAME}  2> /dev/null
+    ice_retry run --name ${MY_CONTAINER_NAME} --env-file ${ENV_FILE} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} ${FULL_IMAGE_NAME}  2> /dev/null
     RESULT=$?
     if [ $RESULT -ne 0 ]; then
         log_and_echo "$ERROR" "Failed to deploy ${MY_CONTAINER_NAME} using ${FULL_IMAGE_NAME}"
