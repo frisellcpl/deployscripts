@@ -255,6 +255,8 @@ if [ "${DEPLOY_TYPE}" == "red_black" ]; then
     deploy_red_black
 elif [ "${DEPLOY_TYPE}" == "clean_and_deploy" ]; then
     clean_and_deploy
+elif [ "${DEPLOY_TYPE}" == "ha" ]; then
+    deploy_ha
 elif [ "${DEPLOY_TYPE}" == "simple" ]; then
     deploy_simple
 elif [ "${DEPLOY_TYPE}" == "clean" ]; then
