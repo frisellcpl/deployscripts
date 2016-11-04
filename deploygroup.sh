@@ -248,10 +248,10 @@ deploy_group() {
     echo "${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${AUTO} ${FULL_IMAGE_NAME}"|grep \\-\\-anti > /dev/null
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
-        log_and_echo "creating group: $IC_COMMAND group create --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}"
+        log_and_echo "creating group: $IC_COMMAND group create --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${AUTO} ${FULL_IMAGE_NAME}"
         ice_retry group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${AUTO} ${FULL_IMAGE_NAME}
     else
-        log_and_echo "creating group: gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${AUTO} ${FULL_IMAGE_NAME}"
+        log_and_echo "creating group: gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${AUTO} ${FULL_IMAGE_NAME}"
         ${EXT_DIR}/utilities/gp_create.py --name ${MY_GROUP_NAME} ${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${AUTO} ${FULL_IMAGE_NAME}
     fi
     local RESULT=$?
