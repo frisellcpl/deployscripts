@@ -430,11 +430,7 @@ fi
 FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION_NUMBER}"
 
 # set the port numbers with --publish
-if [ "${PORT}" == "-P" ]; then
-    export PUBLISH_PORT="-P"
-else
-    export PUBLISH_PORT=$(get_port_numbers "${PORT}")
-fi
+export PUBLISH_PORT=$(get_port_numbers "${PORT}")
 
 # if the user has not defined a Route then create one
 if [ -z "${ROUTE_HOSTNAME}" ]; then
