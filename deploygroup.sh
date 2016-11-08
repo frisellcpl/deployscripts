@@ -190,7 +190,7 @@ map_url_route_to_container_group (){
     return 0
 }
 
-deploy_group() {
+deploy_pms_group() {
     local MY_GROUP_NAME=$1
     log_and_echo "deploying group ${MY_GROUP_NAME}"
 
@@ -217,27 +217,6 @@ deploy_group() {
         return 1
     fi
 
-    local BIND_PARMS=""
-    # validate the bind_to parameter if one was passed
-    if [ ! -z "${BIND_TO}" ]; then
-        log_and_echo "Binding to ${BIND_TO}"
-        local APP=$(cf env ${BIND_TO})
-        local APP_FOUND=$?
-        if [ $APP_FOUND -ne 0 ]; then
-            log_and_echo "$ERROR" "${BIND_TO} application not found in space.  Please confirm that you wish to bind the container to the application, and that the application exists"
-        fi
-        local VCAP_SERVICES=$(echo "${APP}" | grep "VCAP_SERVICES")
-        local SERVICES_BOUND=$?
-        if [ $SERVICES_BOUND -ne 0 ]; then
-            log_and_echo "$WARN" "No services appear to be bound to ${BIND_TO}.  Please confirm that you have bound the intended services to the application."
-        fi
-        if [ "$USE_ICE_CLI" = "1" ]; then
-            BIND_PARMS="--bind ${BIND_TO}"
-        else
-            BIND_PARMS="-e CCS_BIND_APP=${BIND_TO}"
-        fi
-    fi
-
     # if group wait for unmap time doesn't exist,
     # default to 3 minutes
     if [ -z "$GROUP_WAIT_UNMAP_TIME" ]; then
@@ -245,16 +224,12 @@ deploy_group() {
     fi
 
     # create the group and check the results
-    echo "${BIND_PARMS} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${FULL_IMAGE_NAME}"|grep \\-\\-anti > /dev/null
+    echo "--name ${MY_GROUP_NAME} --publish ${PUBLISH_PORT} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} -m ${MEMORY} -e "CONTAINER_NAME=${CONTAINER_NAME}" -e "RMQ_NODE=${RMQ_NODE}" -e "RMQ_HOST=${RMQ_HOST}" -e "RMQ_PASSWORD=${RMQ_PASSWORD}" ${FULL_IMAGE_NAME}" |grep \\-\\-anti > /dev/null
+
+    ice_retry group create --name ${MY_GROUP_NAME} --publish ${PUBLISH_PORT} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} -m ${MEMORY} -e "CONTAINER_NAME=${CONTAINER_NAME}" -e "RMQ_NODE=${RMQ_NODE}" -e "RMQ_HOST=${RMQ_HOST}" -e "RMQ_PASSWORD=${RMQ_PASSWORD}" ${FULL_IMAGE_NAME}
+
     local RESULT=$?
-    if [ $RESULT -ne 0 ]; then
-        log_and_echo "creating group: $IC_COMMAND group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${FULL_IMAGE_NAME}"
-        ice_retry group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} ${BIND_PARMS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${FULL_IMAGE_NAME}
-    else
-        log_and_echo "creating group: gp_create.py --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} ${FULL_IMAGE_NAME}"
-        ${EXT_DIR}/utilities/gp_create.py --name ${MY_GROUP_NAME} ${PUBLISH_PORT} ${MEMORY} ${OPTIONAL_ARGS} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} --env-file ${ENV_FILE} ${FULL_IMAGE_NAME}
-    fi
-    local RESULT=$?
+
     if [ $RESULT -ne 0 ]; then
         log_and_echo "$ERROR" "Failed to deploy ${MY_GROUP_NAME} using ${FULL_IMAGE_NAME}"
         return 1
@@ -264,55 +239,8 @@ deploy_group() {
     wait_for_group ${MY_GROUP_NAME}
     RESULT=$?
     if [ $RESULT -eq 0 ]; then
-
-        # call the POST_DEPLOY_GROUP hook (if defined)
-        if [ -n "${POST_DEPLOY_GROUP}" ]; then
-            log_and_echo "$INFO" "POST_DEPLOY_GROUP hook is defined - ${POST_DEPLOY_GROUP}"
-            eval ${POST_DEPLOY_GROUP}
-            HOOK_RES=$?
-            if [ $HOOK_RES -ne 0 ]; then
-                log_and_echo "$WARN" "POST_DEPLOY_GROUP hook failed with return code ${HOOK_RES}"
-                return 1
-            fi
-        fi
-
         insert_inventory "ibm_containers_group" ${MY_GROUP_NAME}
 
-        # if the IGNORE_MAPPING_ROUTE set, then don't map route the container group
-        if [ -z "${IGNORE_MAPPING_ROUTE}" ]; then
-            # Map route the container group
-            if [[ ( -n "${ROUTE_DOMAIN}" ) && ( -n "${ROUTE_HOSTNAME}" ) && ( "$ROUTE_HOSTNAME" != "None" ) ]]; then
-                get_routes
-                # Conditionally sleep between group completion and route mapping
-                if [[ ( -n "${GROUP_PRE_ROUTE_WAIT_TIME}" ) && ( ${GROUP_PRE_ROUTE_WAIT_TIME} -gt 0 ) ]]; then
-                    log_and_echo "Sleeping ${GROUP_PRE_ROUTE_WAIT_TIME} seconds before mapping route(s) to the newly created group."
-                    sleep ${GROUP_PRE_ROUTE_WAIT_TIME}
-                fi
-                for host in ${ALLHOSTS[@]}; do
-                    map_url_route_to_container_group ${MY_GROUP_NAME} ${host} ${ROUTE_DOMAIN}
-                    RET=$?
-                    if [ $RET -eq 0 ]; then
-                        log_and_echo "Successfully mapped '$host.$ROUTE_DOMAIN' URL to container group '$MY_GROUP_NAME'."
-                    else
-                        if [ "${DEBUG}x" != "1x" ]; then
-                            log_and_echo "$WARN" "You can check the route status with 'curl ${host}.${ROUTE_DOMAIN}' command after the deploy completed."
-                        else
-                            log_and_echo "$ERROR" "Failed to map '$host.$ROUTE_DOMAIN' to container group '$MY_GROUP_NAME'. Please ensure that the routes are setup correctly.  You can see this with cf routes when targetting the space for this stage."
-                        fi
-                    fi
-                done
-                if [ ! -z ${DEPLOY_PROPERTY_FILE} ]; then
-                    TEST_URL="${ROUTE_HOSTNAME}.${ROUTE_DOMAIN}"
-                    echo "export TEST_URL="${TEST_URL}"" >> "${DEPLOY_PROPERTY_FILE}"
-                    echo "export TEST_IP="${ROUTE_HOSTNAME}"" >> "${DEPLOY_PROPERTY_FILE}"
-                    echo "export TEST_PORT="$(echo $PORT | sed 's/,/ /g' |  awk '{print $1;}')"" >> "${DEPLOY_PROPERTY_FILE}"
-                fi
-            else
-                log_and_echo "$ERROR" "No route defined to be mapped to the container group.  If you wish to provide a Route please define ROUTE_HOSTNAME and ROUTE_DOMAIN on the Stage environment."
-            fi
-        else
-            log_and_echo "Ignore mapping map route the container group"
-        fi
     elif [ $RESULT -eq 2 ] || [ $RESULT -eq 3 ]; then
         log_and_echo "$ERROR" "Failed to create group."
         sleep 3
@@ -338,39 +266,15 @@ deploy_group() {
     return ${RESULT}
 }
 
-deploy_simple () {
-    local MY_GROUP_NAME="${CONTAINER_NAME}_${BUILD_NUMBER}"
-    deploy_group ${MY_GROUP_NAME}
+deploy_simple_pms () {
+    local MY_GROUP_NAME="${CONTAINER_NAME}-${BUILD_NUMBER}"
+    deploy_pms_group ${MY_GROUP_NAME}
     local RESULT=$?
     if [ $RESULT -ne 0 ]; then
         log_and_echo "$ERROR" "Error encountered with simple build strategy for ${MY_GROUP_NAME}"
         ${EXT_DIR}/utilities/sendMessage.sh -l bad -m "Failed deployment of ${MY_GROUP_NAME}. $(get_error_info)"
         exit $RESULT
     fi
-}
-
-deploy_red_black () {
-    log_and_echo "$LABEL" "Example red_black container deploy "
-    # deploy new version of the application
-    local MY_GROUP_NAME="${CONTAINER_NAME}_${BUILD_NUMBER}"
-    deploy_group ${MY_GROUP_NAME}
-    local RESULT=$?
-    if [ $RESULT -ne 0 ]; then
-        ${EXT_DIR}/utilities/sendMessage.sh -l bad -m "Failed deployment of ${MY_GROUP_NAME}. $(get_error_info)"
-        exit $RESULT
-    fi
-
-    if [ -z "$REMOVE_FROM" ]; then
-        clean
-        RESULT=$?
-        if [ $RESULT -ne 0 ]; then
-            ${EXT_DIR}/utilities/sendMessage.sh -l bad -m "Failed to cleanup previous groups after deployment of group ${MY_GROUP_NAME}. $(get_error_info)"
-            exit $RESULT
-        fi
-    else
-        log_and_echo "Not removing previous instances until after testing"
-    fi
-    return 0
 }
 
 clean() {
@@ -481,7 +385,6 @@ clean() {
 ##################
 # Check to see what deployment type:
 #   simple: simply deploy a container and set the inventory
-#   red_black: deploy new container, assign floating IP address, keep original container
 log_and_echo "$LABEL" "Deploying using ${DEPLOY_TYPE} strategy, for ${CONTAINER_NAME}, deploy number ${BUILD_NUMBER}"
 ${EXT_DIR}/utilities/sendMessage.sh -l info -m "New ${DEPLOY_TYPE} copntainer group deployment for ${CONTAINER_NAME} requested"
 
@@ -603,31 +506,18 @@ if [ ! -z ${DEPLOY_PROPERTY_FILE} ]; then
 fi
 
 # set the memory size
-if [ -z "$CONTAINER_SIZE" ];then
-    export MEMORY=""
-else
-    RET_MEMORY=$(get_memory_size $CONTAINER_SIZE)
-    if [ $RET_MEMORY == -1 ]; then
-        ${EXT_DIR}/utilities/sendMessage.sh -l bad -m "Failed with container size ${CONTAINER_SIZE}. $(get_error_info)"
-        exit 1;
-    else
-        export MEMORY="--memory $RET_MEMORY"
-    fi
+if [ -z "$MEMORY" ];then
+    export MEMORY="128"
 fi
 
-if [ "${DEPLOY_TYPE}" == "simple" ]; then
-    deploy_simple
-elif [ "${DEPLOY_TYPE}" == "simple_public" ]; then
-    deploy_public
-elif [ "${DEPLOY_TYPE}" == "clean" ]; then
+if [ "${DEPLOY_TYPE}" == "simple_pms" ]; then
+    deploy_simple_pms
+elif [ "${DEPLOY_TYPE}" == "clean_pms" ]; then
     clean
-elif [ "${DEPLOY_TYPE}" == "red_black" ]; then
-    deploy_red_black
+    deploy_simple_pms
 else
-    log_and_echo "$WARN" "Currently only supporting 'red_black' deployment and 'clean' strategy"
-    log_and_echo "$WARN" "If you would like another strategy please fork https://github.com/Osthanes/deployscripts.git and submit a pull request"
-    log_and_echo "$WARN" "Defaulting to red_black deploy"
-    deploy_red_black
+    log_and_echo "$WARN" "Defaulting to simple pms"
+    deploy_simple_pms
 fi
 
 dump_info
