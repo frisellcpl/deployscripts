@@ -226,7 +226,7 @@ deploy_pms_group() {
     # create the group and check the results
     echo "--name ${MY_GROUP_NAME} ${PUBLISH_PORT} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} -m ${MEMORY} -e "CONTAINER_NAME=${CONTAINER_NAME}" -e "RMQ_NODE=${RMQ_NODE}" -e "RMQ_HOST=${RMQ_HOST}" -e "RMQ_PASSWORD=${RMQ_PASSWORD}" ${FULL_IMAGE_NAME}" |grep \\-\\-anti > /dev/null
 
-    ice_retry group create --name ${MY_GROUP_NAME} ${PUBLISH_PORT} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} -m ${MEMORY} -e "CONTAINER_NAME=${CONTAINER_NAME}" -e "RMQ_NODE=${RMQ_NODE}" -e "RMQ_HOST=${RMQ_HOST}" -e "RMQ_PASSWORD=${RMQ_PASSWORD}" ${FULL_IMAGE_NAME}
+    ice_retry group create --name ${MY_GROUP_NAME} --publish s${PUBLISH_PORT} --desired ${DESIRED_INSTANCES} --min ${MIN_INSTANCES} --max ${MAX_INSTANCES} -m ${MEMORY} -e "CONTAINER_NAME=${CONTAINER_NAME}" -e "RMQ_NODE=${RMQ_NODE}" -e "RMQ_HOST=${RMQ_HOST}" -e "RMQ_PASSWORD=${RMQ_PASSWORD}" -e "LOG_LOCATIONS=${LOG_LOCATIONS}" ${FULL_IMAGE_NAME}
 
     local RESULT=$?
 
@@ -428,9 +428,6 @@ if [ -z "$VERSION_NUMBER" ]; then
 fi
 
 FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION_NUMBER}"
-
-# set the port numbers with --publish
-export PUBLISH_PORT=$(get_port_numbers "${PORT}")
 
 # if the user has not defined a Route then create one
 if [ -z "${ROUTE_HOSTNAME}" ]; then
